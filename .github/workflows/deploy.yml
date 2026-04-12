@@ -1,5 +1,9 @@
 name: Deploy IPTV System
 
+# ✅ PERMISSÕES (ESSENCIAL PARA RESOLVER O ERRO 403)
+permissions:
+  contents: write
+
 on:
   push:
     branches: [main]
@@ -7,12 +11,11 @@ on:
   pull_request:
     branches: [main]
 
-  # ✅ Execução manual (botão "Run workflow")
+  # ✅ Execução manual
   workflow_dispatch:
 
-  # ✅ Execução automática (cron - UTC)
+  # ✅ Execução automática (cron UTC)
   schedule:
-    # Todo dia às 7:30 da manhã (Brasília = UTC-3 → 10:30 UTC)
     - cron: "30 10 * * *"
 
 jobs:
@@ -36,7 +39,7 @@ jobs:
       - name: Verificar sintaxe Python
         run: python -m py_compile api/app.py api/models.py api/m3u_processor.py
 
-      - name: Teste de inicialização da aplicação
+      - name: Teste da API
         run: |
           python -c "
           import os
@@ -47,22 +50,17 @@ jobs:
           init_db()
           client = app.test_client()
           r = client.get('/api/health')
-          assert r.status_code == 200, f'Health check failed: {r.status_code}'
-          print('✅ Todos os testes passaram!')
+          assert r.status_code == 200
+          print('✅ Testes OK')
           "
 
   sync-iptv:
     name: 🔄 Sincronização IPTV
     runs-on: ubuntu-latest
 
-    # Executa quando:
-    # - cron
-    # - manual
-    # - push (opcional)
+    # ✅ Evita loop infinito (push do bot não reexecuta)
     if: |
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push'
+      github.actor != 'github-actions[bot]'
 
     steps:
       - name: Checkout do código
@@ -76,20 +74,21 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Executar script de sincronização IPTV
-        run: |
-          python scripts/sync_iptv.py
+      - name: Executar script IPTV
+        run: python scripts/sync_iptv.py
 
-      - name: Commit e push automático
+      - name: Commit e Push automático (COM TOKEN)
+        env:
+          TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
 
           git add .
 
-          git commit -m "🔄 Atualização automática IPTV - $(date +'%Y-%m-%d %H:%M:%S')" || echo "Sem mudanças"
+          git commit -m "🔄 Atualização automática IPTV - $(date +'%Y-%m-%d %H:%M:%S')" || exit 0
 
-          git push
+          git push https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git
 
   deploy-render:
     name: 🚀 Deploy para Render
@@ -99,9 +98,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Trigger Deploy no Render
+      - name: Trigger Deploy
         if: vars.RENDER_DEPLOY_HOOK != ''
         run: |
           curl -X POST "${{ vars.RENDER_DEPLOY_HOOK }}" \
-            -H "Content-Type: application/json" \
-            --fail-with-body || echo "Deploy hook não configurado ou falhou"
+          -H "Content-Type: application/json" \
+          --fail-with-body || echo "Deploy falhou"
