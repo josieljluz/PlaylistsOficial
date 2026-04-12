@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — IPTV System{% endblock %}
+{% block body %}
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">📺 IPTV System</div>
+      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="nav-item active">
+        <span class="nav-icon">🏠</span> Dashboard
+      </a>
+      <a href="/player" class="nav-item">
+        <span class="nav-icon">▶️</span> Player
+      </a>
+      {% if user.is_admin %}
+      <a href="/admin" class="nav-item">
+        <span class="nav-icon">⚙️</span> Admin
+      </a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username[0].upper() }}</div>
+        <div>
+          <div class="user-name">{{ user.username }}</div>
+          <div class="user-role">{{ 'Administrador' if user.is_admin else 'Usuário' }}</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Sair</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <h2 class="page-title">Minhas Playlists</h2>
+      <button class="btn btn-primary" onclick="openModal('modal-add-playlist')">
+        + Nova Playlist
+      </button>
+    </header>
+
+    <div class="content-area">
+      <!-- Stats bar -->
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-playlists">—</div>
+          <div class="stat-label">Playlists</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-channels">—</div>
+          <div class="stat-label">Canais Total</div>
+        </div>
+      </div>
+
+      <!-- External Access URLs (Merged from IPTV Panel) -->
+      <div class="external-access-section">
+        <div class="section-header">
+          <h3>🔗 Acesso Externo (VLC, Smarters, Kodi)</h3>
+          <span class="badge badge-success">API Online</span>
+        </div>
+        <div class="access-cards">
+          <div class="access-card">
+            <div class="access-card-header">
+              <span class="icon">📄</span>
+              <h4>Playlist Unificada (M3U)</h4>
+            </div>
+            <p class="text-muted">URL direta para carregar todos os seus canais de uma vez.</p>
+            <div class="url-copy-group">
+              <input type="text" id="unified-playlist-url" readonly value="Carregando..." />
+              <button class="btn btn-sm btn-primary" onclick="copyToClipboard('unified-playlist-url')">Copiar</button>
+            </div>
+          </div>
+          <div class="access-card">
+            <div class="access-card-header">
+              <span class="icon">⚡</span>
+              <h4>API Compatível (Xtream)</h4>
+            </div>
+            <p class="text-muted">Formato compatível com painéis antigos e players profissionais.</p>
+            <div class="url-copy-group">
+              <input type="text" id="xtream-api-url" readonly value="Carregando..." />
+              <button class="btn btn-sm btn-primary" onclick="copyToClipboard('xtream-api-url')">Copiar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert -->
+      <div id="alert-box" class="alert hidden"></div>
+
+      <!-- Playlists grid -->
+      <div class="playlists-grid" id="playlists-grid">
+        <div class="loading-spinner">Carregando playlists...</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Adicionar Playlist -->
+<div class="modal-overlay hidden" id="modal-add-playlist">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Nova Playlist</h3>
+      <button onclick="closeModal('modal-add-playlist')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-alert" class="alert hidden"></div>
+      <form id="form-add-playlist">
+        <div class="form-group">
+          <label>Nome da Playlist *</label>
+          <input type="text" id="pl-name" placeholder="Ex: Canais Brasil" required />
+        </div>
+        <div class="form-group">
+          <label>Descrição</label>
+          <input type="text" id="pl-desc" placeholder="Opcional" />
+        </div>
+        <div class="tabs">
+          <button type="button" class="tab-btn active" onclick="switchTab('url')">Por URL</button>
+          <button type="button" class="tab-btn" onclick="switchTab('paste')">Colar M3U</button>
+        </div>
+        <div id="tab-url" class="tab-content">
+          <div class="form-group">
+            <label>URL da Playlist M3U</label>
+            <input type="url" id="pl-url" placeholder="http://exemplo.com/lista.m3u" />
+          </div>
+        </div>
+        <div id="tab-paste" class="tab-content hidden">
+          <div class="form-group">
+            <label>Conteúdo M3U</label>
+            <textarea id="pl-content" rows="8" placeholder="#EXTM3U&#10;#EXTINF:-1,Canal 1&#10;http://..."></textarea>
+          </div>
+        </div>
+        <div class="form-group form-check">
+          <label>
+            <input type="checkbox" id="pl-public" />
+            Playlist pública (acessível por outros usuários)
+          </label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-playlist')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-playlist" onclick="savePlaylist()">
+        <span class="btn-text">Salvar</span>
+        <span class="btn-loading hidden">Processando...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar Playlist -->
+<div class="modal-overlay hidden" id="modal-edit-playlist">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar Playlist</h3>
+      <button onclick="closeModal('modal-edit-playlist')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="edit-alert" class="alert hidden"></div>
+      <input type="hidden" id="edit-pl-id" />
+      <div class="form-group">
+        <label>Nome *</label>
+        <input type="text" id="edit-pl-name" required />
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input type="text" id="edit-pl-desc" />
+      </div>
+      <div class="form-group">
+        <label>URL de Origem</label>
+        <input type="url" id="edit-pl-url" placeholder="http://..." />
+      </div>
+      <div class="form-group form-check">
+        <label>
+          <input type="checkbox" id="edit-pl-public" />
+          Playlist pública
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-playlist')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-update-playlist" onclick="updatePlaylist()">
+        <span class="btn-text">Salvar</span>
+        <span class="btn-loading hidden">Salvando...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: URL para Player externo -->
+<div class="modal-overlay hidden" id="modal-player-url">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>URL para Player Externo</h3>
+      <button onclick="closeModal('modal-player-url')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted">Use esta URL no VLC, Kodi, IPTV Smarters ou qualquer player compatível:</p>
+      <div class="url-box">
+        <input type="text" id="player-url-text" readonly />
+        <button class="btn btn-sm btn-primary" onclick="copyPlayerUrl()">Copiar</button>
+      </div>
+      <p class="text-muted mt-1" style="font-size:0.8rem;">
+        Formato: <code>/get.php?username=USER&password=PASS&playlist_id=ID</code>
+      </p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

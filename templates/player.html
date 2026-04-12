@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Player — IPTV System{% endblock %}
+{% block body %}
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">📺 IPTV System</div>
+      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="nav-item">
+        <span class="nav-icon">🏠</span> Dashboard
+      </a>
+      <a href="/player" class="nav-item active">
+        <span class="nav-icon">▶️</span> Player
+      </a>
+      {% if user.is_admin %}
+      <a href="/admin" class="nav-item">
+        <span class="nav-icon">⚙️</span> Admin
+      </a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username[0].upper() }}</div>
+        <div>
+          <div class="user-name">{{ user.username }}</div>
+          <div class="user-role">{{ 'Administrador' if user.is_admin else 'Usuário' }}</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Sair</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content player-main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <h2 class="page-title" id="now-playing-title">Selecione um canal</h2>
+      <div class="topbar-actions">
+        <select id="playlist-selector" class="select-input" onchange="loadPlaylist(this.value)">
+          <option value="">Selecionar playlist...</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="player-layout">
+      <!-- Player de vídeo -->
+      <div class="video-container">
+        <video id="main-player" class="video-js vjs-default-skin vjs-big-play-centered"
+               controls preload="auto" playsinline>
+          <p class="vjs-no-js">Para assistir, habilite o JavaScript.</p>
+        </video>
+        <div class="player-overlay" id="player-overlay">
+          <div class="overlay-content">
+            <div class="overlay-icon">📺</div>
+            <p>Selecione um canal na lista ao lado para começar</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel de canais -->
+      <div class="channels-panel">
+        <!-- Busca e filtros -->
+        <div class="channels-toolbar">
+          <input type="text" id="channel-search" placeholder="🔍 Buscar canal..."
+                 oninput="filterChannels()" class="search-input" />
+          <select id="group-filter" class="select-input" onchange="filterChannels()">
+            <option value="">Todos os grupos</option>
+          </select>
+        </div>
+
+        <!-- Contador -->
+        <div class="channels-count" id="channels-count">
+          Nenhuma playlist selecionada
+        </div>
+
+        <!-- Lista de canais -->
+        <div class="channels-list" id="channels-list">
+          <div class="empty-state">
+            <p>Selecione uma playlist para ver os canais</p>
+          </div>
+        </div>
+
+        <!-- Paginação -->
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+{% endblock %}

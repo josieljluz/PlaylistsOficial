@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Admin — IPTV System{% endblock %}
+{% block body %}
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">📺 IPTV System</div>
+      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard" class="nav-item">
+        <span class="nav-icon">🏠</span> Dashboard
+      </a>
+      <a href="/player" class="nav-item">
+        <span class="nav-icon">▶️</span> Player
+      </a>
+      <a href="/admin" class="nav-item active">
+        <span class="nav-icon">⚙️</span> Admin
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username[0].upper() }}</div>
+        <div>
+          <div class="user-name">{{ user.username }}</div>
+          <div class="user-role">Administrador</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Sair</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <h2 class="page-title">Painel Admin</h2>
+      <button class="btn btn-primary" onclick="openModal('modal-add-user')">+ Novo Usuário</button>
+    </header>
+
+    <div class="content-area">
+      <!-- Stats -->
+      <div class="stats-bar" id="admin-stats">
+        <div class="stat-card"><div class="stat-value" id="s-users">—</div><div class="stat-label">Usuários</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-active">—</div><div class="stat-label">Ativos</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-playlists">—</div><div class="stat-label">Playlists</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-channels">—</div><div class="stat-label">Canais</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-logs">—</div><div class="stat-label">Acessos Hoje</div></div>
+      </div>
+
+      <div id="alert-box" class="alert hidden"></div>
+
+      <!-- Tabs -->
+      <div class="admin-tabs">
+        <button class="tab-btn active" onclick="showAdminTab('users')">Usuários</button>
+        <button class="tab-btn" onclick="showAdminTab('logs')">Logs de Acesso</button>
+      </div>
+
+      <!-- Usuários -->
+      <div id="admin-tab-users">
+        <div class="table-container">
+          <table class="data-table" id="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Usuário</th>
+                <th>E-mail</th>
+                <th>Playlists</th>
+                <th>Admin</th>
+                <th>Status</th>
+                <th>Último Login</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="8" class="text-center">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div id="admin-tab-logs" class="hidden">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Usuário</th>
+                <th>Ação</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="4" class="text-center">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="logs-pagination"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Adicionar Usuário -->
+<div class="modal-overlay hidden" id="modal-add-user">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Novo Usuário</h3>
+      <button onclick="closeModal('modal-add-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="add-user-alert" class="alert hidden"></div>
+      <div class="form-group">
+        <label>Usuário *</label>
+        <input type="text" id="new-username" placeholder="nome_usuario" required />
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="new-email" placeholder="email@exemplo.com" />
+      </div>
+      <div class="form-group">
+        <label>Senha *</label>
+        <input type="password" id="new-password" placeholder="Mínimo 6 caracteres" required />
+      </div>
+      <div class="form-group form-check">
+        <label>
+          <input type="checkbox" id="new-is-admin" />
+          Administrador
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-user')">Cancelar</button>
+      <button class="btn btn-primary" onclick="createUser()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar Usuário -->
+<div class="modal-overlay hidden" id="modal-edit-user">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Editar Usuário</h3>
+      <button onclick="closeModal('modal-edit-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="edit-user-alert" class="alert hidden"></div>
+      <input type="hidden" id="edit-user-id" />
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="edit-user-email" />
+      </div>
+      <div class="form-group">
+        <label>Nova Senha (deixe em branco para manter)</label>
+        <input type="password" id="edit-user-password" placeholder="Nova senha..." />
+      </div>
+      <div class="form-group form-check">
+        <label><input type="checkbox" id="edit-user-admin" /> Administrador</label>
+      </div>
+      <div class="form-group form-check">
+        <label><input type="checkbox" id="edit-user-active" checked /> Ativo</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-user')">Cancelar</button>
+      <button class="btn btn-primary" onclick="updateUser()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

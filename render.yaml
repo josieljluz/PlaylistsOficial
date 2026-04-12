@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: iptv-system
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api.app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    disk:
+      name: iptv-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_PATH
+        value: /data/iptv.db
+    healthCheckPath: /api/health
+    autoDeploy: true

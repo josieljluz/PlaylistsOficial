@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Login — IPTV System{% endblock %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon">📺</div>
+      <h1>IPTV System</h1>
+      <p>Plataforma Profissional de IPTV</p>
+    </div>
+
+    <div id="alert-box" class="alert hidden"></div>
+
+    <form id="login-form" class="auth-form">
+      <div class="form-group">
+        <label for="username">Usuário</label>
+        <input type="text" id="username" name="username" placeholder="Digite seu usuário"
+               autocomplete="username" required />
+      </div>
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <div class="input-password">
+          <input type="password" id="password" name="password" placeholder="Digite sua senha"
+                 autocomplete="current-password" required />
+          <button type="button" class="toggle-password" onclick="togglePassword('password')">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+        <span class="btn-text">Entrar</span>
+        <span class="btn-loading hidden">Aguarde...</span>
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p>Não tem conta? <a href="/register">Cadastre-se grátis</a></p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("login-btn");
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  setLoading(btn, true);
+  hideAlert();
+
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      credentials: "include"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      window.location.href = "/dashboard";
+    } else {
+      showAlert(data.error || "Erro ao fazer login", "error");
+    }
+  } catch (err) {
+    showAlert("Erro de conexão. Tente novamente.", "error");
+  } finally {
+    setLoading(btn, false);
+  }
+});
+</script>
+{% endblock %}
